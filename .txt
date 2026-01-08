@@ -1,0 +1,77 @@
+📋 Drinkpioneer Backend Development Guidelines (Revised)
+[Project Context] 우리는 **'Drinkpioneer'**라는 주류 버티컬 플랫폼의 MVP 백엔드를 개발 중입니다. 이 앱은 위스키 등 주류 정보 제공, 가격 이력 추적, 그리고 향후 AI 블렌딩 시뮬레이션을 목표로 합니다.
+
+[Tech Stack]
+
+Language: Python 3.13
+
+Framework: FastAPI
+
+Database: PostgreSQL (Local host)
+
+Driver: pg8000 (Strictly required for Windows/Unicode compatibility)
+
+ORM: SQLAlchemy (Sync Session 사용)
+
+Validation: Pydantic v2
+
+Server: Uvicorn
+
+[Current Architecture & Design Pattern] 우리는 Layered Architecture를 엄격히 따르며, 각 계층의 역할 분리가 명확해야 합니다.
+
+Model (app/models): SQLAlchemy를 사용한 DB 테이블 정의 (Base 클래스 상속). __init__.py에 모든 모델을 import 하여 create_all이나 Alembic이 감지할 수 있도록 함.
+
+Schema (app/schemas): Pydantic을 사용한 데이터 검증 및 입출력 모델 (DTO).
+
+Service (app/services): 실제 비즈니스 로직(DB 저장, 트랜잭션 관리, 복합 로직) 처리.
+
+API (app/api): 라우팅, 의존성 주입(Dependency Injection), HTTP 요청/응답 처리.
+
+Core (app/core): DB 연결(database.py), 환경변수 설정(config.py) 등 공통 설정.
+
+[Current Status: Completed Features & Critical Fixes]
+
+Database Connection (Critical):
+
+Windows 환경의 CP949 인코딩 충돌 방지를 위해 psycopg2 대신 순수 파이썬 드라이버인 pg8000을 채택했습니다.
+
+.env의 DATABASE_URL은 반드시 postgresql+pg8000://... 형식을 따릅니다.
+
+database.py 설정 완료 (expire_on_commit=False 적용).
+
+Admin Product Registration (POST /api/v1/admin/products):
+
+관리자가 상품 등록 시 Product 테이블(기본 정보)과 PriceHistory 테이블(가격 이력)에 동시에 데이터가 저장되는 트랜잭션 로직이 구현되어 있습니다.
+
+app/models/product.py에 Product, PriceHistory, Review 모델 정의 및 1:N 관계 설정 완료.
+
+[Project File Structure]
+
+Plaintext
+
+drinkpioneer_backend/
+├── .env                     # DB 접속 정보 (postgresql+pg8000:// 필수)
+├── app/
+│   ├── main.py              # 앱 진입점, 생명주기(DB 테이블 자동 생성), 라우터 등록
+│   ├── core/
+│   │   ├── config.py        # Pydantic Settings 관리
+│   │   └── database.py      # DB 엔진 및 세션 설정 (pg8000 기반)
+│   ├── models/
+│   │   ├── base.py          # DeclarativeBase
+│   │   ├── product.py       # Product, PriceHistory, Review 모델
+│   │   └── __init__.py      # 모델 모음 (Import 필수)
+│   ├── schemas/
+│   │   └── product.py       # Pydantic DTO (ProductCreate, ProductResponse)
+│   ├── services/
+│   │   └── product_service.py # 상품 등록 트랜잭션 로직
+│   └── api/
+│       └── v1/admin/product.py # 관리자용 상품 API 라우터
+[Instructions for Next Steps] 위의 구조와 규칙을 엄격히 준수하여 다음 기능을 개발하거나 리팩토링해야 합니다.
+
+Driver Compliance: DB 관련 작업 시 반드시 pg8000 호환성을 유지해야 합니다. psycopg2 관련 의존성은 절대 추가하지 마세요.
+
+Strict Type Hinting: 모든 함수(인자 및 반환값)에는 Type Hint를 명시해야 합니다.
+
+Error Handling: DB 연결 실패나 로직 에러 시 클라이언트가 이해할 수 있는 명확한 HTTPException 또는 로그용 RuntimeError를 발생시켜야 합니다.
+
+No Circular Imports: 모델(Models), 스키마(Schemas), 서비스(Services) 간의 순환 참조를 방지하기 위해 TYPE_CHECKING이나 구조적 분리를 고려하세요.

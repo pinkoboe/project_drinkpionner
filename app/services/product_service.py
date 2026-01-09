@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from app.models import Product, Review, PriceHistory # v3.0 모델 참조
 from app.schemas.product import ProductCreate
 from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload  # 관계된 데이터(가격이력)를 한 번에 가져오기 위해 필요
 
 def create_product_with_details(db: Session, obj_in: ProductCreate):
     # 1. 제품 기본 정보 생성
@@ -32,3 +34,25 @@ def create_product_with_details(db: Session, obj_in: ProductCreate):
     db.commit()
     db.refresh(db_product)
     return db_product
+
+
+def get_products(db: Session, skip: int = 0, limit: int = 10):
+    """
+    상품 목록 조회 (페이징 적용)
+    """
+    stmt = select(Product).offset(skip).limit(limit)
+    result = db.execute(stmt)
+    return result.scalars().all()
+
+def get_product_by_id(db: Session, product_id: int):
+    """
+    상품 상세 조회 (가격 이력 포함)
+    """
+    # selectinload를 써서 1:N 관계인 price_histories를 같이 로딩합니다.
+    stmt = (
+        select(Product)
+        .options(selectinload(Product.price_histories))
+        .where(Product.id == product_id)
+    )
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()

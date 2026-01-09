@@ -1,13 +1,15 @@
 from fastapi import FastAPI
 from app.models.base import Base
 from app.core.database import engine
-# [추가 1] 만든 API 라우터 불러오기
-from app.api.v1.admin import product as admin_product
 from app.core.config import settings
 
-# [추가 2] 모델들이 로드되도록 임포트 (테이블 생성을 위해 필수)
-# app/models/__init__.py가 잘 작성되어 있다고 가정합니다.
-# 만약 에러가 난다면 from app.models.product import Product 처럼 직접 적어주세요.
+# [기존] 관리자용 라우터 불러오기
+from app.api.v1.admin import product as admin_product
+
+# [신규 추가] 사용자용 라우터 불러오기 (여기가 추가되었습니다)
+from app.api.v1 import product as user_product
+
+# 모델들이 로드되도록 임포트 (테이블 생성을 위해 필수)
 import app.models
 
 app = FastAPI(title="Drinkpioneer API")
@@ -34,15 +36,22 @@ def on_startup() -> None:
         ) from e
 
 
-# [추가 3] 라우터 등록 (이게 있어야 URL이 동작함)
+# [기존] 관리자용 라우터 등록 (/api/v1/admin/products)
 app.include_router(
     admin_product.router,
     prefix=f"{settings.API_V1_STR}/admin/products",
     tags=["admin-products"],
 )
 
+# [신규 추가] 사용자용 라우터 등록 (/api/v1/products)
+# 일반 사용자가 상품 목록과 상세 정보를 조회하는 경로입니다.
+app.include_router(
+    user_product.router,
+    prefix=f"{settings.API_V1_STR}/products",
+    tags=["products"],
+)
+
 
 @app.get("/")
 def read_root():
     return {"message": "Drinkpioneer 서버가 정상 작동 중입니다!"}
-

@@ -1,11 +1,15 @@
 from sqlalchemy.orm import Session
-from app.models import Product, Review, PriceHistory # v3.0 모델 참조
-from app.schemas.product import ProductCreate
-from datetime import datetime
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload  # 관계된 데이터(가격이력)를 한 번에 가져오기 위해 필요
+from sqlalchemy.orm import selectinload
+from datetime import datetime
+
+from app.models import Product, Review, PriceHistory
+from app.schemas.product import ProductCreate
 
 def create_product_with_details(db: Session, obj_in: ProductCreate):
+    """
+    상품 등록 로직 (트랜잭션)
+    """
     # 1. 제품 기본 정보 생성
     db_product = Product(
         name=obj_in.name,
@@ -18,7 +22,7 @@ def create_product_with_details(db: Session, obj_in: ProductCreate):
     db.add(db_product)
     db.flush() # ID를 미리 할당받기 위함
 
-    # 2. 가격 이력 생성 (v3.0 전략 반영)
+    # 2. 가격 이력 생성
     db_price = PriceHistory(
         product_id=db_product.id,
         price=obj_in.latest_price,
@@ -27,18 +31,15 @@ def create_product_with_details(db: Session, obj_in: ProductCreate):
     )
     db.add(db_price)
 
-    # 3. 맛 프로필 생성 (v3.0 상세화 반영)
-    # 실제 앱에서는 제품 등록 시 시스템 리뷰 형태로 맛 데이터를 관리자 계정으로 저장합니다.
-    # (여기서는 예시를 위해 단순화된 저장 로직을 적용)
+    # 3. 맛 프로필 등 추가 로직이 있다면 여기에 작성
     
     db.commit()
     db.refresh(db_product)
     return db_product
 
-
 def get_products(db: Session, skip: int = 0, limit: int = 10):
     """
-    상품 목록 조회 (페이징 적용)
+    모든 상품 목록 조회 (페이징)
     """
     stmt = select(Product).offset(skip).limit(limit)
     result = db.execute(stmt)
@@ -48,10 +49,10 @@ def get_product_by_id(db: Session, product_id: int):
     """
     상품 상세 조회 (가격 이력 포함)
     """
-    # selectinload를 써서 1:N 관계인 price_histories를 같이 로딩합니다.
+    # [수정] Product.price_histories -> Product.price_history (모델 정의와 일치시킴)
     stmt = (
         select(Product)
-        .options(selectinload(Product.price_histories))
+        .options(selectinload(Product.price_history)) 
         .where(Product.id == product_id)
     )
     result = db.execute(stmt)
